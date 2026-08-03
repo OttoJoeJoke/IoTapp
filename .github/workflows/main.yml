@@ -30,6 +30,7 @@ jobs:
         PROJECT_DIR=$(dirname $(find . -name "settings.gradle*" | head -n 1))
         echo "Proje dizini bulundu: $PROJECT_DIR"
         cd "$PROJECT_DIR"
+        touch .env.example
         gradle assembleDebug
 
     - name: APK'yi Bul ve Yukle
