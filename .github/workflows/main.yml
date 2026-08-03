@@ -19,11 +19,18 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Gradle Kurulumu
+    - name: Gradle Kurulumu (Manuel ve Cachesiz)
       uses: gradle/actions/setup-gradle@v3
+      with:
+        gradle-version: '8.4'
+        cache-disabled: true
 
     - name: APK'yi Insa Et
-      run: gradle assembleDebug
+      run: |
+        PROJECT_DIR=$(dirname $(find . -name "settings.gradle*" | head -n 1))
+        echo "Proje dizini bulundu: $PROJECT_DIR"
+        cd "$PROJECT_DIR"
+        gradle assembleDebug
 
     - name: APK'yi Bul ve Yukle
       uses: actions/upload-artifact@v4
