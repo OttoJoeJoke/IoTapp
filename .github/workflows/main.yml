@@ -10,30 +10,37 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Kodu Klonla
+    - name: 1. Kodu Klonla
       uses: actions/checkout@v4
 
-    - name: Java 17 Kur
+    - name: 2. Java 17 Kurulumu
       uses: actions/setup-java@v3
       with:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Gradle Kurulumu (Manuel ve Cachesiz)
+    - name: 3. Guncel Gradle Kurulumu (Cachesiz)
       uses: gradle/actions/setup-gradle@v3
       with:
         gradle-version: '9.3.1'
         cache-disabled: true
 
-    - name: APK'yi Insa Et
+    - name: 4. Eksik Dosyalari Yarat ve APK'yi Insa Et
       run: |
         PROJECT_DIR=$(dirname $(find . -name "settings.gradle*" | head -n 1))
-        echo "Proje dizini bulundu: $PROJECT_DIR"
+        echo "--> Proje dizini bulundu: $PROJECT_DIR"
         cd "$PROJECT_DIR"
+        
+        echo "--> Sistemin aradigi bos .env.example dosyasi olusturuluyor..."
         touch .env.example
+        
+        echo "--> Android imza (Keystore) dosyasi otomatik uretiliyor..."
+        keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "C=US, O=Android, CN=Android Debug"
+        
+        echo "--> Tum pruzler giderildi, derleme basliyor..."
         gradle assembleDebug
 
-    - name: APK'yi Bul ve Yukle
+    - name: 5. APK'yi Bul ve Indirmeye Hazirla
       uses: actions/upload-artifact@v4
       with:
         name: 3D-Tarayici-APK
