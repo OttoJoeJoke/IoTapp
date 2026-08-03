@@ -57,7 +57,8 @@ class ScanViewModel : ViewModel() {
     private val _uploadState = MutableStateFlow<UploadState>(UploadState.IDLE)
     val uploadState: StateFlow<UploadState> = _uploadState.asStateFlow()
 
-    private val _serverUrl = MutableStateFlow("http://192.168.1.100:5000/api/v1/3d-scan")
+    // Güncel IP adresinle (178) doğrudan başlatıldı
+    private val _serverUrl = MutableStateFlow("http://192.168.1.178:5000/api/v1/3d-scan")
     val serverUrl: StateFlow<String> = _serverUrl.asStateFlow()
 
     private val okHttpClient = OkHttpClient.Builder()
@@ -71,7 +72,7 @@ class ScanViewModel : ViewModel() {
     }
 
     val totalTargetFrames = 20
-    val angleStepDegrees = 18f // 360 / 20 = 18 degrees
+    val angleStepDegrees = 18f
 
     var gyroscopeSensorManager: GyroscopeSensorManager? = null
         private set
@@ -89,7 +90,6 @@ class ScanViewModel : ViewModel() {
     }
 
     fun startScan(context: Context, imageCapture: ImageCapture?) {
-        // Clear old frames & cache
         clearCache(context)
         _capturedFrames.value = emptyList()
         _showCompletionDialog.value = false
@@ -99,7 +99,6 @@ class ScanViewModel : ViewModel() {
         gyroscopeSensorManager?.startListening()
         gyroscopeSensorManager?.resetAngle()
 
-        // Automatically capture first frame at 0 degrees
         captureFrame(context, imageCapture, targetAngle = 0f)
     }
 
@@ -125,7 +124,6 @@ class ScanViewModel : ViewModel() {
 
         val requiredAngleForNextFrame = count * angleStepDegrees
         if (_currentRotationAngle.value >= requiredAngleForNextFrame) {
-            // Pending auto-capture request
             _pendingAutoCaptureAngle = requiredAngleForNextFrame
         }
     }
@@ -162,7 +160,6 @@ class ScanViewModel : ViewModel() {
         val photoFile = File(cacheDir, "scan_frame_${String.format(Locale.US, "%02d", frameIndex)}_$timeStamp.jpg")
 
         if (imageCapture == null) {
-            // Fallback for emulator / preview without active ImageCapture
             createFallbackSampleImage(photoFile)
             val newFrame = CapturedFrame(
                 index = frameIndex,
@@ -196,7 +193,6 @@ class ScanViewModel : ViewModel() {
                 override fun onError(exception: ImageCaptureException) {
                     _isCapturingImage.value = false
                     Log.e("ScanViewModel", "Photo capture failed: ${exception.message}", exception)
-                    // Create fallback frame on capture error
                     createFallbackSampleImage(photoFile)
                     val newFrame = CapturedFrame(
                         index = frameIndex,
@@ -218,6 +214,9 @@ class ScanViewModel : ViewModel() {
             _scanStatus.value = ScanStatus.COMPLETED
             gyroscopeSensorManager?.stopListening()
             _showCompletionDialog.value = true
+            
+            // 20 Kare tamamlandığı an otomatik olarak sunucuya fırlatır!
+            uploadFramesToServer(context)
         }
     }
 
@@ -235,11 +234,9 @@ class ScanViewModel : ViewModel() {
                 val responseCode = withContext(Dispatchers.IO) {
                     val builder = MultipartBody.Builder().setType(MultipartBody.FORM)
 
-                    // Attach metadata
                     builder.addFormDataPart("total_frames", frames.size.toString())
                     builder.addFormDataPart("scan_timestamp", System.currentTimeMillis().toString())
 
-                    // Attach all 20 image files
                     frames.forEachIndexed { index, frame ->
                         val file = File(frame.filePath)
                         if (file.exists() && file.length() > 0) {
